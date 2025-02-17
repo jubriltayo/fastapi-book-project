@@ -8,14 +8,42 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+    - name: Checkout code
+    - uses: actions/checkout@v3
+
     - name: Set up Python
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v4
       with:
-        python-version: '3.9'
+        python-version: '3.12'
+    
     - name: Install dependencies
       run: |
+        python -m venv venv
+        source venv/bin/activate
         python -m pip install --upgrade pip
         pip install -r requirements.txt
+    
     - name: Run tests
-      run: pytest
+      run: | 
+        source venv/bin/activate
+        pytest
+
+    - name: Notify Telex of Test Success
+      if: success()
+      run: |
+        curl -X POST -H "Content-Type: application/json" -d '{
+          "event_name": "ci_pipeline",
+          "username": "Github Actions",
+          "status": "success",
+          "message": "Tests passed successfully for PR ${{ github.event.pull_request.number }}."
+        }' ${{ secrets.TELEX_WEBHOOK }}
+
+    - name: Notify Telex of Test Failure
+      if: failure()
+      run: |
+        curl -X POST -H "Content-Type: application/json" -d '{
+          "event_name": "ci_pipeline",
+          "username": "Github Actions",
+          "status": "failure",
+          "message": "Tests failed for PR ${{ github.event.pull_request.number }}."
+        }' ${{ secrets.TELEX_WEBHOOK }}

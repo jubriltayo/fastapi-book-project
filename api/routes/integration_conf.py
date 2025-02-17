@@ -74,6 +74,6 @@ integration_json = {
 }
 
 
-@router.get("/telex-webhook")
+@router.get("/integration-config")
 async def get_integration_json():
     return JSONResponse(content=integration_json)
