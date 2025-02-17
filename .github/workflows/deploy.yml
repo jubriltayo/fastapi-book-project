@@ -31,11 +31,19 @@ jobs:
       - name: Deploy to EC2
         run: |
           ssh -o StrictHostKeyChecking=no -i ~/.ssh/ec2_key.pem ubuntu@${{ secrets.EC2_PUBLIC_IP }} << 'EOF'
+            sudo apt-get update -y
+            sudo apt-get install -y python3 python3-venv python3-pip
+
             cd /home/ubuntu/fastapi-book-project
+            
             git pull origin main
+            python3 -m venv venv
             source venv/bin/activate
+            
             pip install -r requirements.txt
-            sudo systemctl restart fastapi
+            
+            docker-compose down
+            docker-compose up -d --build
           EOF
 
       - name: Notify Telex - Deployment Successful
