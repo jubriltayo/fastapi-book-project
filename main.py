@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from api.router import api_router
 from api.routes.integration_conf import router as integration_router
+from api.routes.webhook import router as webhook_router
 from core.config import settings
 
 app = FastAPI()
@@ -15,11 +16,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Integration and Webhook Router
+app.include_router(integration_router)
+app.include_router(webhook_router)
+
 # API Router
 app.include_router(api_router, prefix=settings.API_PREFIX)
 
-# Integration Router
-app.include_router(integration_router)
 
 
 @app.get("/healthcheck")
