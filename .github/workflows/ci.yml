@@ -35,7 +35,7 @@ jobs:
           "event_name": "ci_pipeline",
           "username": "Github Actions",
           "status": "success",
-          "message": "Tests passed successfully for PR ${{ github.event.pull_request.number }}."
+          "message": "✅ Tests passed successfully for PR ${{ github.event.pull_request.number }}."
         }' ${{ secrets.TELEX_WEBHOOK }}
 
     - name: Notify Telex of Test Failure
@@ -45,5 +45,5 @@ jobs:
           "event_name": "ci_pipeline",
           "username": "Github Actions",
           "status": "failure",
-          "message": "Tests failed for PR ${{ github.event.pull_request.number }}."
+          "message": "❌ Tests failed for PR ${{ github.event.pull_request.number }}."
         }' ${{ secrets.TELEX_WEBHOOK }}
