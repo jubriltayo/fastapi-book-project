@@ -1,47 +1,59 @@
-name: CD Pipeline
+name: Deploy API
+
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout repository
+      - name: Checkout Repository
         uses: actions/checkout@v3
 
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USERNAME }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script: |
-            # Update package index and install dependencies
-            sudo apt-get update -y
-            sudo apt-get install -y apt-transport-https ca-certificates curl software-properties-common
+      - name: Notify Telex - Deployment Started
+        run: |
+          curl -X POST -H "Content-Type: application/json" -d '{
+            "event_name": "cd_pipeline",
+            "username": "GitHub Actions",
+            "status": "in_progress",
+            "message": "🚀 Deployment started for commit ${{ github.sha }}."
+          }' ${{ secrets.TELEX_WEBHOOK }}
 
-            # Add Docker's official GPG key
-            curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
-            sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+      - name: Setup SSH Key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/ec2_key.pem
+          chmod 600 ~/.ssh/ec2_key.pem
 
-            # Install Docker
-            sudo apt-get update -y
-            sudo apt-get install -y docker-ce docker-ce-cli containerd.io
+      - name: Deploy to EC2
+        run: |
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/ec2_key.pem ubuntu@${{ secrets.SSH_HOST }} << 'EOF'
+            cd /home/ubuntu/fastapi-book-project
+            git pull origin main
+            source venv/bin/activate
+            pip install -r requirements.txt
+            sudo systemctl restart fastapi
+          EOF
 
-            # Add the SSH user to the Docker group
-            sudo usermod -aG docker ${{ secrets.SSH_USERNAME }}
+      - name: Notify Telex - Deployment Successful
+        if: success()
+        run: |
+          curl -X POST -H "Content-Type: application/json" -d '{
+            "event_name": "cd_pipeline",
+            "username": "GitHub Actions",
+            "status": "success",
+            "message": "✅ Deployment successful for commit ${{ github.sha }}."
+          }' ${{ secrets.TELEX_WEBHOOK }}
 
-            # Install Docker Compose
-            sudo curl -L "https://github.com/docker/compose/releases/download/v2.20.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-            sudo chmod +x /usr/local/bin/docker-compose
-
-            # Verify installations
-            docker --version
-            docker-compose --version
-
-            # Navigate to the project directory and deploy
-            cd /home/ubuntu/
-            git clone https://github.com/jubriltayo/fastapi-book-project.git
-            cd fastapi-book-project/
-            git pull
-            docker-compose up -d --build
+      - name: Notify Telex - Deployment Failed
+        if: failure()
+        run: |
+          curl -X POST -H "Content-Type: application/json" -d '{
+            "event_name": "cd_pipeline",
+            "username": "GitHub Actions",
+            "status": "failure",
+            "message": "❌ Deployment failed for commit ${{ github.sha }}."
+          }' ${{ secrets.TELEX_WEBHOOK }}
